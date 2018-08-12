@@ -14,5 +14,5 @@ def plot_image(image_tensor, keypoints_tensor=None):
     if keypoints_tensor is not None:
         keypoints_ndarray = keypoints_tensor_to_ndarray(keypoints_tensor, image_height, image_width)
         keypoints_matrix = keypoints_ndarray.reshape((-1, 2))
-        ax.scatter(keypoints_matrix[:, 0], keypoints_matrix[:, 1])
+        ax.scatter(keypoints_matrix[:, 0], keypoints_matrix[:, 1], marker='.', c='g')
 

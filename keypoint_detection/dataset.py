@@ -6,10 +6,17 @@ from typing import NamedTuple
 from torch.utils.data import Dataset
 import torch
 from torch import FloatTensor, Size
+from toolz import identity
 
 class Sample(NamedTuple):
     image: FloatTensor
     keypoints: FloatTensor
+
+def concat_samples(samples):
+    return Sample(
+        image = torch.cat([s.image for s in samples], dim=0),
+        keypoints = torch.cat([s.keypoints.unsqueeze(0) for s in samples], dim=0)
+    )
 
 class ManifestItem(NamedTuple):
     image_name: str
@@ -17,12 +24,13 @@ class ManifestItem(NamedTuple):
 
 class KeypointsDataset(Dataset):
 
-    def __init__(self, manifest, root_dir):
+    def __init__(self, manifest, root_dir, transform=identity):
         self.manifest = manifest
         self.root_dir = root_dir
+        self.transform = transform
 
     def __len__(self):
-        return len(manifest)
+        return len(self.manifest)
 
     def __getitem__(self, i):
         item = self.manifest[i]
@@ -31,10 +39,12 @@ class KeypointsDataset(Dataset):
         image_height, image_width, _ = image_ndarray.shape
 
         return Sample(
-            image = image_ndarray_to_tensor(image_ndarray),
+            image = self.transform(image_ndarray_to_tensor(image_ndarray)),
             keypoints = keypoints_ndarray_to_tensor(item.keypoints, image_height, image_width)
         )
 
+# image tensors in this project are always four axis tensors:
+# batch, channel, row, column
 def image_ndarray_to_tensor(image):
     float_ndarray = image.astype(np.float32)
     raw_tensor = torch.from_numpy(float_ndarray)
@@ -53,16 +63,16 @@ def image_tensor_to_ndarray(tensor):
 def keypoints_ndarray_to_tensor(keypoints_ndarray, image_height, image_width):
     float_ndarray = keypoints_ndarray.astype(np.float32)
     keypoints_tensor = torch.from_numpy(float_ndarray.copy())
-    keypoints_tensor[1::2] /= (2 * image_height)
     keypoints_tensor[0::2] /= (2 * image_width)
+    keypoints_tensor[1::2] /= (2 * image_height)
     keypoints_tensor -=1
     return keypoints_tensor
 
 def keypoints_tensor_to_ndarray(keypoints, image_height, image_width):
     keypoints_ndarray = keypoints.numpy().copy()
     keypoints_ndarray += 1
-    keypoints_ndarray[1::2] *= image_height * 2
     keypoints_ndarray[0::2] *= image_width * 2
+    keypoints_ndarray[1::2] *= image_height * 2
     int_ndarray = keypoints_ndarray.astype(np.int32)
     return int_ndarray
 
