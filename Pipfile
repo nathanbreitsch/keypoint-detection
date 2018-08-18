@@ -11,6 +11,7 @@ matplotlib = "*"
 imageio = "*"
 toolz = "*"
 dataclasses = "*"
+opencv-python = "*"
 
 [dev-packages]
 
