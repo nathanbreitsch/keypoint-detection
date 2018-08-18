@@ -7,16 +7,11 @@ from torch.utils.data import Dataset
 import torch
 from torch import FloatTensor, Size
 from toolz import identity
+import pandas as pd
 
 class Sample(NamedTuple):
     image: FloatTensor
     keypoints: FloatTensor
-
-def concat_samples(samples):
-    return Sample(
-        image = torch.cat([s.image for s in samples], dim=0),
-        keypoints = torch.cat([s.keypoints.unsqueeze(0) for s in samples], dim=0)
-    )
 
 class ManifestItem(NamedTuple):
     image_name: str
@@ -63,17 +58,33 @@ def image_tensor_to_ndarray(tensor):
 def keypoints_ndarray_to_tensor(keypoints_ndarray, image_height, image_width):
     float_ndarray = keypoints_ndarray.astype(np.float32)
     keypoints_tensor = torch.from_numpy(float_ndarray.copy())
-    keypoints_tensor[0::2] /= (2 * image_width)
-    keypoints_tensor[1::2] /= (2 * image_height)
+    keypoints_tensor[0::2] *= (2 / image_width)
+    keypoints_tensor[1::2] *= (2 / image_height)
     keypoints_tensor -=1
     return keypoints_tensor
 
 def keypoints_tensor_to_ndarray(keypoints, image_height, image_width):
     keypoints_ndarray = keypoints.numpy().copy()
     keypoints_ndarray += 1
-    keypoints_ndarray[0::2] *= image_width * 2
-    keypoints_ndarray[1::2] *= image_height * 2
+    keypoints_ndarray[0::2] *= image_width / 2
+    keypoints_ndarray[1::2] *= image_height / 2
     int_ndarray = keypoints_ndarray.astype(np.int32)
     return int_ndarray
 
+def concat_samples(samples):
+    return Sample(
+        image = torch.cat([s.image for s in samples], dim=0),
+        keypoints = torch.cat([s.keypoints.unsqueeze(0) for s in samples], dim=0)
+    )
 
+def load_manifest(manifest_path):
+    df_raw = pd.read_csv(manifest_path)
+
+    training_manifest = [
+        ManifestItem(
+            image_name = row[0],
+            keypoints = row[1:].values
+        ) 
+        for _, row in df_raw.iterrows()
+    ]
+    return training_manifest
